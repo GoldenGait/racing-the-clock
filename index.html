@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Racing the Clock</title>
+<meta name="description" content="Budget-conditioned object search for vision-language navigation: how action budgets shape exploration, and which expert supervision teaches it best.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap">
+<script>
+  try { var t = localStorage.getItem('rtc-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+<style>
+/* Layout: one calm centered column. Prose is narrow, media is wide and sits in rounded panels.
+   Dark charcoal first, with a light theme. The red is the paper's color for the room-level (ours) curves. */
+:root {
+  color-scheme: dark;
+  --ground: #242422;
+  --panel: #2e2e2b;
+  --ink: #edece7;
+  --soft: #aeaca4;
+  --hair: #45443f;
+  --ours: #ef5b3c;
+  --base: #8c8a83;
+  --paper: #f3f2ee;          /* figure panels keep a light ground in both themes */
+  --paper-ink: #1c1c1a;
+  --font: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+/* dark is the chosen look for everyone; light is opt-in through the toggle */
+:root[data-theme="light"] { color-scheme: light; --ground: #fcfcfa; --panel: #f1f0ec; --ink: #1c1c1a; --soft: #62605a; --hair: #dddbd4; --ours: #d1422a; --base: #8a8881; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--font); font-size: 18px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ours); outline-offset: 3px; border-radius: 6px; }
+img, video { max-width: 100%; }
+.gut { padding-inline: max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px)); }
+.wide { max-width: 1120px; margin-inline: auto; }
+.text { max-width: 720px; margin-inline: auto; }
+
+/* top strip */
+.top { position: sticky; top: 0; z-index: 6; background: color-mix(in srgb, var(--ground) 90%, transparent); backdrop-filter: blur(10px); font-size: 14px; }
+.top .wide { display: flex; align-items: center; gap: 22px; height: 52px; }
+.top .name { text-decoration: none; margin-right: auto; }
+.top nav { display: flex; gap: 20px; color: var(--soft); }
+.top nav a { text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+.top button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--soft); }
+.top button:hover { color: var(--ink); }
+
+/* hero */
+.hero { text-align: center; padding-block: 56px 44px; display: grid; gap: 22px; justify-items: center; }
+h1 { margin: 0; font-weight: 300; font-size: clamp(46px, 8vw, 92px); line-height: 1; letter-spacing: -.035em; }
+.sub { margin: 0; font-size: clamp(19px, 2.3vw, 26px); line-height: 1.3; color: var(--ink); text-wrap: balance; }
+.hero p.lead { margin: 0; color: var(--soft); max-width: 40em; text-wrap: pretty; }
+.award { margin: 0; font-size: clamp(16px, 1.7vw, 19px); font-weight: 500; color: var(--ours); text-wrap: balance; }
+.award a { text-decoration: none; }
+.award a:hover { text-decoration: underline; }
+.soon { color: var(--soft); border-bottom: 1px solid var(--hair); padding-bottom: 2px; }
+.authors { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 20px; font-size: 17px; }
+.authors sup, .affil sup { font-size: .62em; color: var(--soft); }
+.affil { margin: 0; color: var(--soft); font-size: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; }
+.pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--hair); border-radius: 999px; padding: 7px 18px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; }
+.pill small { font-size: 11px; letter-spacing: .04em; text-transform: none; color: var(--soft); }
+span.pill { color: var(--soft); }
+a.pill:hover { border-color: var(--ink); }
+
+/* sections */
+section.block { padding-block: 64px 8px; }
+h2 { margin: 0 0 14px; font-weight: 400; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.2; letter-spacing: -.02em; text-wrap: balance; }
+h3 { margin: 0 0 6px; font-weight: 500; font-size: 18px; }
+.text p { margin: 0 0 16px; color: var(--soft); }
+.text p strong { color: var(--ink); font-weight: 500; }
+.media { margin-top: 30px; }
+
+/* reel: a video you can scrub, with previous / next */
+.reel { display: grid; gap: 14px; }
+.reel .stage { position: relative; background: #0b0b0c; border-radius: 22px; overflow: hidden; }
+.reel video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: contain; background: #0b0b0c; }
+.reel .nav { position: absolute; top: 50%; transform: translateY(-70%); width: 46px; height: 46px; border-radius: 50%; border: 0; cursor: pointer; background: rgba(245, 244, 240, .92); color: #1c1c1a; font-size: 20px; line-height: 1; display: grid; place-items: center; }
+.reel .nav:hover { background: #ffffff; }
+.reel .prev { left: 14px; }
+.reel .next { right: 14px; }
+.reel .under { display: flex; align-items: baseline; justify-content: space-between; gap: 14px 24px; flex-wrap: wrap; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { border: 1px solid var(--hair); background: none; border-radius: 999px; padding: 5px 14px; cursor: pointer; font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.tab:hover { color: var(--ink); border-color: var(--soft); }
+.tab[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.reel .cap { margin: 0; font-size: 15px; color: var(--soft); max-width: 60ch; }
+
+/* all-four view: one transport for four runs */
+.viewsw { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.quad { display: grid; gap: 14px; }
+.quad .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+.quad .cell { display: grid; gap: 6px; min-width: 0; }
+.quad video { display: block; width: 100%; height: auto; aspect-ratio: 854 / 480; object-fit: cover; background: #0b0b0c; border-radius: 14px; }
+.quad .lab { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.quad .cap { margin: 0; font-size: 15px; color: var(--soft); max-width: 70ch; }
+
+/* figure panels */
+.sheet { background: var(--paper); color: var(--paper-ink); border-radius: 22px; padding: clamp(14px, 2.4vw, 28px); }
+.sheet img { display: block; width: 100%; height: auto; }
+/* five separate house cut-outs, straight on the page ground */
+.houses { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px 14px; }
+.houses li { display: grid; gap: 6px; justify-items: center; text-align: center; min-width: 0; }
+.houses img { display: block; width: 100%; height: auto; }
+.houses .b { font-size: clamp(16px, 1.9vw, 24px); font-weight: 500; }
+.houses .n { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .houses { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+figure { margin: 0; }
+.routes { margin-top: 34px; }
+.sheet.map { background: #faf9f5; padding: clamp(8px, 1.4vw, 16px); }
+figcaption { margin-top: 12px; font-size: 15px; color: var(--soft); max-width: 70ch; }
+
+/* two experts */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; margin-top: 26px; }
+.pair > div { border-top: 1px solid var(--hair); padding-top: 16px; }
+.pair p { margin: 0; color: var(--soft); font-size: 16px; line-height: 1.6; }
+.pair .tag { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); margin-bottom: 4px; display: block; }
+.pair .ours .tag { color: var(--ours); }
+
+/* stepper */
+.steps { display: grid; gap: 18px; }
+.steps .head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.dots { display: flex; gap: 6px; }
+.dot { width: 26px; height: 26px; border: 0; background: none; padding: 0; cursor: pointer; display: grid; place-items: center; }
+.dot::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--hair); }
+.dot[aria-pressed="true"]::before { background: var(--ours); }
+.steps .title { margin: 0; font-size: 19px; }
+.steps .body { margin: 0; color: var(--soft); max-width: 62ch; min-height: 3.4em; }
+.steps .sheet { cursor: pointer; }
+.steps .sheet img { max-height: 520px; object-fit: contain; }
+
+/* charts */
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 40px; margin-top: 30px; }
+.chart h3 { margin-bottom: 2px; }
+.chart .hint { margin: 0 0 6px; font-size: 14px; color: var(--soft); }
+.chart .scroll { overflow-x: auto; }
+.chart svg { display: block; width: 100%; min-width: 440px; height: auto; }
+.chart text { font-family: var(--font); font-size: 13px; fill: var(--soft); }
+.chart .lab-ours { fill: var(--ours); font-weight: 500; }
+.chart .lab-base { fill: var(--ink); }
+.chart .grid { stroke: var(--hair); stroke-width: 1; }
+.chart .l-ours { stroke: var(--ours); stroke-width: 3; fill: none; }
+.chart .l-base { stroke: var(--base); stroke-width: 1.8; fill: none; }
+.chart .p-ours { fill: var(--ours); stroke: var(--ground); stroke-width: 1.5; }
+.chart .p-base { fill: var(--base); stroke: var(--ground); stroke-width: 1.5; }
+
+/* tables */
+.tablewrap { overflow-x: auto; margin-top: 26px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 9px 12px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+thead th { font-weight: 500; color: var(--soft); border-bottom-color: var(--soft); }
+td small { color: var(--soft); font-size: 12px; margin-left: 3px; }
+tr.grp td { color: var(--soft); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding-top: 18px; }
+tr.ours td { color: var(--ours); font-weight: 500; }
+tr.ours td small { color: var(--ours); opacity: .75; }
+tr.sub td:first-child { padding-left: 28px; color: var(--soft); }
+
+/* method */
+.part { margin-top: 38px; }
+.part h3 { font-size: 21px; font-weight: 400; margin-bottom: 10px; display: flex; gap: 14px; align-items: baseline; color: var(--ink); }
+.part .num { font-size: 13px; letter-spacing: .08em; color: var(--ours); font-variant-numeric: tabular-nums; }
+.eq { margin: 6px 0 20px; padding: 18px 16px; background: var(--panel); border-radius: 16px; overflow-x: auto; color: var(--ink); }
+.eq math { font-size: 19px; margin: 8px 0; }
+table.info th, table.info td { text-align: left; white-space: normal; vertical-align: top; min-width: 150px; }
+table.info td:first-child { color: var(--soft); min-width: 120px; }
+table.info th.o { color: var(--ours); }
+table.info td { color: var(--ink); }
+
+/* cite */
+pre { margin: 0; background: var(--panel); border-radius: 16px; padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; line-height: 1.6; }
+.copy { margin-top: 12px; border: 1px solid var(--hair); background: none; border-radius: 999px; padding: 6px 16px; cursor: pointer; font-size: 14px; }
+.copy:hover { border-color: var(--ink); }
+footer { padding-block: 60px 50px; color: var(--soft); font-size: 14px; text-align: center; }
+
+@media (max-width: 760px) {
+  body { font-size: 17px; }
+  .top nav { display: none; }
+  .pair, .charts { grid-template-columns: minmax(0, 1fr); }
+  .pair > div + div { margin-top: 22px; }
+  .reel .stage, .sheet { border-radius: 14px; }
+  .quad .grid { gap: 12px 8px; }
+  .quad video { border-radius: 10px; }
+  .reel .nav { width: 38px; height: 38px; font-size: 17px; }
+  section.block { padding-top: 48px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top gut">
+  <div class="wide">
+    <a class="name" href="#top">Racing the Clock</a>
+    <nav aria-label="Sections">
+      <a href="#budget">Budget</a>
+      <a href="#experts">Experts</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="#real">Real world</a>
+      <a href="#cite">BibTeX</a>
+    </nav>
+    <button id="theme" type="button">Light</button>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="gut">
+    <div class="hero">
+      <h1>Racing the Clock</h1>
+      <p class="sub">Teaching VLNs Budget-Conditioned Object Search</p>
+      <p class="award"><a href="https://frostlab.byu.edu/IIG-workshop/" target="_blank" rel="noopener">Best Paper Award, IROS 2026 Workshop on Intelligent Information Gathering</a></p>
+      <p class="lead">An indoor search robot must split its budget between nearby targets and distant rooms. A short budget may favor immediate collection, while a longer one can justify travelling to a promising room.</p>
+      <p class="lead">We study budget-conditioned object search: finding as many distinct instances of a requested category as possible within an action budget. The policy reads its remaining budget as a countdown in the instruction.</p>
+      <p class="lead"><span class="soon">ICRA video · coming soon</span></p>
+      <ul class="authors">
+        <li>Maitree Meher<sup>1*</sup></li>
+        <li>Siming He<sup>1*</sup></li>
+        <li>S. Shankar Sastry<sup>1</sup></li>
+        <li>Jitendra Malik<sup>1</sup></li>
+        <li>Claire Tomlin<sup>1</sup></li>
+        <li>Jonas Frey<sup>1,2</sup></li>
+      </ul>
+      <p class="affil"><span><sup>1</sup>University of California, Berkeley</span><span><sup>2</sup>Stanford University</span><span>*Equal contribution</span></p>
+      <div class="pills">
+        <a class="pill" href="https://arxiv.org/pdf/2611.17442" target="_blank" rel="noopener">Paper &#8599;</a>
+        <a class="pill" href="https://arxiv.org/abs/2611.17442" target="_blank" rel="noopener">arXiv &#8599;</a>
+        <span class="pill">Code <small>soon</small></span>
+      </div>
+    </div>
+
+    <div class="wide">
+      <div class="viewsw" role="group" aria-label="Video layout">
+        <button class="tab" type="button" id="v-one" aria-pressed="true">One at a time</button>
+        <button class="tab" type="button" id="v-all" aria-pressed="false">All four</button>
+      </div>
+      <div class="reel" id="reel-real"></div>
+      <div class="quad" id="quad" hidden>
+        <div class="grid">
+          <div class="cell"><video muted loop playsinline controls preload="metadata" poster="assets/real/b150.jpg" src="assets/real/b150.mp4"></video><span class="lab">150 steps · 4.53×</span></div>
+          <div class="cell"><video muted loop playsinline controls preload="metadata" poster="assets/real/b400.jpg" src="assets/real/b400.mp4"></video><span class="lab">400 steps · 4.53×</span></div>
+          <div class="cell"><video muted loop playsinline controls preload="metadata" poster="assets/real/b800.jpg" src="assets/real/b800.mp4"></video><span class="lab">800 steps · 4.53×</span></div>
+          <div class="cell"><video muted loop playsinline controls preload="metadata" poster="assets/real/b2000.jpg" src="assets/real/b2000.mp4"></video><span class="lab">2000 steps · 10×</span></div>
+        </div>
+        <p class="cap">The same policy in the same house and start location, given different step budgets. Each video has its own controls.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block gut" id="budget">
+    <div class="text">
+      <h2>Changing only the stated budget changes where the policy goes.</h2>
+      <p>The model is rolled out from the same start pose in the same held-out HM3D scene with identical deterministic decoding. Only the budget in the instruction changes. The trajectories differ substantially rather than simply extending one another, most visibly between 150 and 400 steps.</p>
+    </div>
+    <div class="wide media">
+      <figure>
+        <ul class="houses">
+          <li><span class="b" style="color:#a873d1"><i>B</i> = 50</span><img src="assets/fig/house_0.png" alt="Cutaway view of the house with the route at a budget of 50 steps; it stays close to the start." width="790" height="602" loading="lazy"><span class="n">1/16 · 50 steps</span></li>
+          <li><span class="b" style="color:#e5483f"><i>B</i> = 150</span><img src="assets/fig/house_1.png" alt="Cutaway view of the house with the route at a budget of 150 steps; it stays close to the start." width="790" height="602" loading="lazy"><span class="n">1/16 · 150 steps</span></li>
+          <li><span class="b" style="color:#f0981f"><i>B</i> = 400</span><img src="assets/fig/house_2.png" alt="Cutaway view of the house with the route at a budget of 400 steps; it reaches the room holding most of the chairs." width="790" height="602" loading="lazy"><span class="n">13/16 · 400 steps</span></li>
+          <li><span class="b" style="color:#2fa56b"><i>B</i> = 800</span><img src="assets/fig/house_3.png" alt="Cutaway view of the house with the route at a budget of 800 steps; it covers most of the house." width="790" height="602" loading="lazy"><span class="n">16/16 · 800 steps</span></li>
+          <li><span class="b" style="color:#4583e6"><i>B</i> = 2000</span><img src="assets/fig/house_4.png" alt="Cutaway view of the house with the route at a budget of 2000 steps; it covers the whole house." width="790" height="602" loading="lazy"><span class="n">16/16 · 1782 steps</span></li>
+        </ul>
+        <figcaption>The room-level expert in one held-out HM3D scene, from the same start with the same target. Under each house: reachable chairs collected, and steps taken.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block gut" id="experts">
+    <div class="text">
+      <h2>Two experts from one Bellman recursion, differing in what they know.</h2>
+      <p>We cast expert design as a choice of scene abstraction. A single budget-indexed Bellman recursion, applied to different abstractions of the full environment, yields experts that differ in what they know.</p>
+    </div>
+    <div class="wide">
+      <div class="pair">
+        <div>
+          <span class="tag">Object-level Bellman expert</span>
+          <p>Given every target location. Search reduces to budgeted routing among known targets: it has nothing left to search for.</p>
+        </div>
+        <div class="ours">
+          <span class="tag">Room-level Bellman expert (ours)</span>
+          <p>Retains observed room connectivity, doorway evidence and cross-scene semantic priors, but withholds the contents of unexplored rooms. It must search for targets that its student also cannot see.</p>
+        </div>
+      </div>
+    </div>
+    <div class="wide media">
+      <div class="reel" id="reel-duel"></div>
+    </div>
+  </section>
+
+
+  <section class="block gut" id="method">
+    <div class="text">
+      <h2>Method</h2>
+    </div>
+
+    <div class="text part">
+      <h3><span class="num">01</span>The task</h3>
+      <p>An episode gives the agent a multi-room environment, a start pose, a target category and an action budget <i>B</i>. At each step the policy picks a primitive action from its RGB history, the instruction and the remaining budget. It never sees a complete map or the locations of unseen targets.</p>
+      <p>The reward counts each target instance once, when it is first credited by camera field of view and proximity. The goal is to collect as many distinct instances as possible before the budget runs out. <strong>Changing <i>B</i> changes the decision problem, not just the point at which a fixed trajectory is cut off.</strong></p>
+    </div>
+
+    <div class="text part">
+      <h3><span class="num">02</span>One Bellman recursion over a scene abstraction</h3>
+      <p>An expert does not plan over the full environment. It plans over an abstraction of it, and knows only the part of that abstraction revealed so far. For remaining budget <i>b</i>, both experts solve the same recursion:</p>
+      <div class="eq">
+        <math display="block"><msubsup><mi>Q</mi><mi>&#966;</mi><mo>&#8902;</mo></msubsup><mo>(</mo><mi>s</mi><mo>,</mo><mi>b</mi><mo>,</mo><mi>a</mi><mo>)</mo><mo>=</mo><msub><mi>R</mi><mi>&#966;</mi></msub><mo>(</mo><mi>s</mi><mo>,</mo><mi>a</mi><mo>)</mo><mo>+</mo><msub><mi>&#120124;</mi><msup><mi>s</mi><mo>&#8242;</mo></msup></msub><mo>[</mo><msubsup><mi>V</mi><mi>&#966;</mi><mo>&#8902;</mo></msubsup><mo>(</mo><msup><mi>s</mi><mo>&#8242;</mo></msup><mo>,</mo><mi>b</mi><mo>&#8722;</mo><mi>c</mi><mo>(</mo><mi>a</mi><mo>)</mo><mo>)</mo><mo>]</mo></math>
+        <math display="block"><msubsup><mi>V</mi><mi>&#966;</mi><mo>&#8902;</mo></msubsup><mo>(</mo><mi>s</mi><mo>,</mo><mi>b</mi><mo>)</mo><mo>=</mo><munder><mi>max</mi><mrow><mi>a</mi><mo>:</mo><mi>c</mi><mo>(</mo><mi>a</mi><mo>)</mo><mo>&#8804;</mo><mi>b</mi></mrow></munder><msubsup><mi>Q</mi><mi>&#966;</mi><mo>&#8902;</mo></msubsup><mo>(</mo><mi>s</mi><mo>,</mo><mi>b</mi><mo>,</mo><mi>a</mi><mo>)</mo><mo>,</mo><mspace width="1.2em"></mspace><msubsup><mi>V</mi><mi>&#966;</mi><mo>&#8902;</mo></msubsup><mo>(</mo><mi>s</mi><mo>,</mo><mn>0</mn><mo>)</mo><mo>=</mo><mn>0</mn></math>
+      </div>
+      <p>The experts differ in what the abstraction retains and in how much of it is revealed. That choice sets the uncertainty each one has to reason over.</p>
+    </div>
+    <div class="wide">
+      <div class="tablewrap">
+        <table class="info">
+          <thead><tr><th></th><th>Object-level expert</th><th class="o">Room-level expert (ours)</th><th>VLN student</th></tr></thead>
+          <tbody>
+            <tr><td>Abstraction</td><td>Map and all target instances</td><td>Room graph with room types and contents</td><td>None; raw RGB</td></tr>
+            <tr><td>Revealed</td><td>All of it, from the first step</td><td>Observed rooms and connectivity, discovered objects, doorway evidence</td><td>RGB history and the countdown</td></tr>
+            <tr><td>Withheld</td><td>Nothing</td><td>Contents of unentered rooms</td><td>Everything unseen</td></tr>
+            <tr><td>Planning</td><td>Deterministic routing</td><td>Expected return from cross-scene transitions</td><td>None; imitates expert actions</td></tr>
+            <tr><td>Decision unit</td><td>Next target instance</td><td>Next frontier room</td><td>Next four primitives</td></tr>
+            <tr><td>Actions depend on unseen targets</td><td>Yes</td><td>No</td><td>No</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="text part">
+      <h3><span class="num">03</span>Distilling the experts into a VLN</h3>
+      <p>Expert demonstrations are converted to Uni-NaVid's native training format. Each record holds the video history, the expert's next four primitives and a natural-language countdown of the steps remaining. <strong>The budget is provided only through language</strong>, with no numerical budget input and no architectural change.</p>
+      <p>The room-level supervision has 388,199 records from 89 HM3D and 59 Matterport3D scenes, at budgets of 50, 150, 400, 800, 1200 and 2000 steps. The object-level, room-level and greedy-frontier students use the same scenes, budgets and record count, so only the expert supervision differs.</p>
+    </div>
+  </section>
+
+  <section class="block gut" id="results">
+    <div class="text">
+      <h2>A stronger expert is not necessarily a better teacher.</h2>
+      <p>As an expert, the object-level planner leads at every budget. After both are distilled into the same VLN under matched training conditions, the order reverses: <strong>room-level supervision achieves the highest mean collection among evaluated VLNs at every tested budget.</strong></p>
+      <p>At 2000 steps it finds 72.7% of reachable targets, versus 68.5% under greedy-frontier supervision, 65.5% under object-level supervision and 44.8% for the pretrained VLN.</p>
+    </div>
+    <div class="wide">
+      <div class="charts">
+        <div class="chart"><h3>Experts</h3><p class="hint">% of reachable targets collected</p><div class="scroll" id="chart-experts"></div></div>
+        <div class="chart"><h3>Learned policies</h3><p class="hint">% of reachable targets collected</p><div class="scroll" id="chart-vlns"></div></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Policy</th><th>B = 150</th><th>B = 400</th><th>B = 800</th><th>B = 2000</th></tr></thead>
+          <tbody>
+            <tr class="grp"><td colspan="5">Expert policies</td></tr>
+            <tr><td>Greedy frontier expert</td><td>24.4<small>±6.3</small></td><td>52.1<small>±7.1</small></td><td>85.8<small>±4.6</small></td><td>93.8<small>±2.9</small></td></tr>
+            <tr><td>Object-level Bellman expert</td><td>91.3<small>±3.4</small></td><td>99.8<small>±0.2</small></td><td>100.0<small>±0.0</small></td><td>100.0<small>±0.0</small></td></tr>
+            <tr class="ours"><td>Room-level Bellman expert (ours)</td><td>45.7<small>±9.8</small></td><td>91.6<small>±6.4</small></td><td>97.1<small>±4.2</small></td><td>98.0<small>±3.5</small></td></tr>
+            <tr class="grp"><td colspan="5">Learned VLN policies</td></tr>
+            <tr><td>Pretrained VLN</td><td>28.3<small>±6.1</small></td><td>35.5<small>±6.2</small></td><td>38.8<small>±6.6</small></td><td>44.8<small>±7.0</small></td></tr>
+            <tr><td>VLN trained on greedy frontier expert</td><td>25.6<small>±6.0</small></td><td>44.5<small>±7.3</small></td><td>54.6<small>±7.5</small></td><td>68.5<small>±7.3</small></td></tr>
+            <tr><td>VLN trained on object-level expert</td><td>28.3<small>±6.2</small></td><td>45.0<small>±7.3</small></td><td>58.6<small>±7.5</small></td><td>65.5<small>±7.4</small></td></tr>
+            <tr class="sub"><td>budget-blind training</td><td>25.5<small>±6.0</small></td><td>42.2<small>±7.2</small></td><td>55.0<small>±7.5</small></td><td>61.8<small>±7.5</small></td></tr>
+            <tr class="ours"><td>VLN trained on room-level expert (ours)</td><td>31.6<small>±6.8</small></td><td>58.0<small>±7.4</small></td><td>64.5<small>±7.1</small></td><td>72.7<small>±6.8</small></td></tr>
+            <tr class="sub"><td>budget-blind training</td><td>28.5<small>±6.2</small></td><td>51.6<small>±7.5</small></td><td>59.5<small>±7.5</small></td><td>63.5<small>±7.5</small></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="cap" style="margin:12px 0 0;font-size:15px;color:var(--soft)">Mean % of reachable targets collected, with 95% confidence-interval half-widths, on held-out HM3D scenes.</p>
+    </div>
+  </section>
+
+  <section class="block gut" id="real">
+    <div class="text">
+      <h2>Zero-shot on a quadruped in a multi-room home.</h2>
+      <p>We deploy the room-level Bellman-supervised VLN on an indoor quadruped without real-world fine-tuning. An onboard camera streams RGB to a remote GPU server, which returns four primitives per call in 0.22 s on average.</p>
+      <p>In a home containing 14 chairs, we fix the start pose, target and weights and vary only the budget, with five runs per budget. Mean discoveries rise from 3.4 to 9.2 as the budget increases.</p>
+    </div>
+    <div class="text">
+      <figure class="routes">
+        <div class="sheet map"><img src="assets/fig/real_routes.png" alt="Lidar map of the home with four routes from the same start, one per budget. The 50-step route stays near the start in the living and dining rooms; the 150, 400 and 2000-step routes travel on to the family room and kitchen. Photos show the kitchen, the quadruped, the family room, the dining room and the living room." width="2400" height="1087" loading="lazy"></div>
+        <figcaption>Where the robot went. The routes share the scene, start, target category and weights. At 50 steps it searches for the closest chairs near its start; with larger budgets it first makes longer excursions toward the family room and kitchen. Routes are drawn over the robot's lidar map; circles mark starts and stars mark endpoints.</figcaption>
+      </figure>
+    </div>
+    <div class="text">
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Budget B</th><th>50</th><th>150</th><th>400</th><th>2000</th></tr></thead>
+          <tbody>
+            <tr><td>Chairs found (of 14)</td><td>3.4<small>±1.14</small></td><td>5.0<small>±1.00</small></td><td>7.6<small>±1.52</small></td><td>9.2<small>±1.30</small></td></tr>
+            <tr><td>Mean success rate (%)</td><td>24.3</td><td>35.7</td><td>54.3</td><td>65.7</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin:12px 0 0;font-size:15px;color:var(--soft)">Mean and standard deviation over five runs per budget.</p>
+    </div>
+  </section>
+
+  <section class="block gut" id="cite">
+    <div class="text">
+      <h2>BibTeX</h2>
+      <pre id="bib">@article{meher2026racing,
+  title   = {Racing the Clock: Teaching VLNs Budget-Conditioned Object Search},
+  author  = {Meher, Maitree and He, Siming and Sastry, S. Shankar and
+             Malik, Jitendra and Tomlin, Claire and Frey, Jonas},
+  journal = {arXiv preprint arXiv:2611.17442},
+  year    = {2026}
+}</pre>
+      <button class="copy" id="copy" type="button">Copy</button>
+    </div>
+  </section>
+</main>
+
+<footer class="gut">Racing the Clock · University of California, Berkeley · Stanford University<br>Page design inspired by <a href="https://alpha-nist.github.io/" target="_blank" rel="noopener">AlphaNIST</a>.</footer>
+
+<script>
+(function () {
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- reels: scrub with the video controls, move between clips with the arrows ---------- */
+  var REELS = {
+    'reel-real': { auto: true, dir: 'assets/real/', slides: [
+      { f: 'b150',  tab: '150 steps',  cap: 'The same policy in the same house and start location, given different step budgets. 150 steps, shown at 4.53×.' },
+      { f: 'b400',  tab: '400 steps',  cap: 'The same policy in the same house and start location, given different step budgets. 400 steps, shown at 4.53×.' },
+      { f: 'b800',  tab: '800 steps',  cap: 'The same policy in the same house and start location, given different step budgets. 800 steps, shown at 4.53×.' },
+      { f: 'b2000', tab: '2000 steps', cap: 'The same policy in the same house and start location, given different step budgets. 2000 steps, shown at 10×.' }
+    ], start: 2 },
+    'reel-duel': { dir: 'assets/sim/', slides: [
+      { f: 'duel_b800', tab: '800 steps', cap: 'Left: the object-level expert, with every chair known from the first frame. Right: the room-level expert, which sees only the rooms it has entered.' },
+      { f: 'duel_b400', tab: '400 steps', cap: 'The same pair with a budget of 400 steps.' }
+    ], start: 0 }
+  };
+
+  Object.keys(REELS).forEach(function (id) {
+    var cfg = REELS[id], el = document.getElementById(id), cur = cfg.start || 0, many = cfg.slides.length > 1;
+    var h = '<div class="stage"><video muted playsinline controls preload="' + (cfg.auto ? 'metadata' : 'none') + '"></video>';
+    if (many) h += '<button class="nav prev" type="button" aria-label="Previous clip">←</button><button class="nav next" type="button" aria-label="Next clip">→</button>';
+    h += '</div><div class="under">';
+    h += '<div class="tabs">' + (many ? cfg.slides.map(function (s) { return '<button class="tab" type="button" aria-pressed="false">' + s.tab + '</button>'; }).join('') : '') + '</div>';
+    h += '<p class="cap"></p></div>';
+    el.innerHTML = h;
+    var v = el.querySelector('video'), cap = el.querySelector('.cap');
+    var tabs = Array.prototype.slice.call(el.querySelectorAll('.tab'));
+    function show(i, play) {
+      cur = (i + cfg.slides.length) % cfg.slides.length;
+      var s = cfg.slides[cur];
+      v.poster = cfg.dir + s.f + '.jpg';
+      v.src = cfg.dir + s.f + '.mp4';
+      cap.textContent = s.cap;
+      tabs.forEach(function (t, k) { t.setAttribute('aria-pressed', k === cur); });
+      if (play && !still) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    }
+    tabs.forEach(function (t, k) { t.addEventListener('click', function () { show(k, true); }); });
+    if (many) {
+      el.querySelector('.prev').addEventListener('click', function () { show(cur - 1, true); });
+      el.querySelector('.next').addEventListener('click', function () { show(cur + 1, true); });
+    }
+    if (cfg.auto) { v.loop = true; }
+    show(cur, !!cfg.auto);
+  });
+
+  /* ---------- all-four view: four independent players side by side ---------- */
+  (function () {
+    var quad = document.getElementById('quad'), reel = document.getElementById('reel-real');
+    var one = document.getElementById('v-one'), all = document.getElementById('v-all');
+    var vids = Array.prototype.slice.call(quad.querySelectorAll('video'));
+    function go(v) { if (still) return; var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    all.addEventListener('click', function () {
+      if (!quad.hidden) return;
+      var rv = reel.querySelector('video'); if (rv) rv.pause();
+      reel.hidden = true; quad.hidden = false;
+      one.setAttribute('aria-pressed', 'false'); all.setAttribute('aria-pressed', 'true');
+      vids.forEach(go);
+    });
+    one.addEventListener('click', function () {
+      if (quad.hidden) return;
+      vids.forEach(function (v) { v.pause(); });
+      quad.hidden = true; reel.hidden = false;
+      one.setAttribute('aria-pressed', 'true'); all.setAttribute('aria-pressed', 'false');
+      var rv = reel.querySelector('video'); if (rv) go(rv);
+    });
+  })();
+
+  /* ---------- charts: the paper's table, ours in red, baselines in grey, labels on the lines ---------- */
+  var BUDGETS = [150, 400, 800, 2000];
+  function chart(id, ymin, ymax, yticks, series) {
+    var W = 560, H = 330, L = 38, R = 196, T = 14, B = 34, pw = W - L - R, ph = H - T - B;
+    var lo = Math.log(150), hi = Math.log(2000);
+    function x(b) { return L + (Math.log(b) - lo) / (hi - lo) * pw; }
+    function y(v) { return T + (1 - (v - ymin) / (ymax - ymin)) * ph; }
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Line chart of the table below">';
+    yticks.forEach(function (t) {
+      s += '<line class="grid" x1="' + L + '" x2="' + (L + pw) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + t + '</text>';
+    });
+    BUDGETS.forEach(function (b) { s += '<text x="' + x(b) + '" y="' + (H - 12) + '" text-anchor="middle">' + b + '</text>'; });
+    // place end labels, pushing apart any that would overlap
+    var labs = series.map(function (se, i) { return { i: i, y: y(se.v[3]) }; }).sort(function (a, b) { return a.y - b.y; });
+    for (var k = 1; k < labs.length; k++) if (labs[k].y - labs[k - 1].y < 17) labs[k].y = labs[k - 1].y + 17;
+    var over = labs[labs.length - 1].y - (T + ph + 4);
+    if (over > 0) labs.forEach(function (l) { l.y -= over; });
+    var ly = {}; labs.forEach(function (l) { ly[l.i] = l.y; });
+    series.forEach(function (se, i) {
+      var cls = se.ours ? 'ours' : 'base';
+      var d = se.v.map(function (v, k) { return (k ? 'L' : 'M') + x(BUDGETS[k]).toFixed(1) + ' ' + y(v).toFixed(1); }).join(' ');
+      s += '<path class="l-' + cls + '" d="' + d + '"' + (se.dash ? ' stroke-dasharray="' + se.dash + '"' : '') + '/>';
+      se.v.forEach(function (v, k) { s += '<circle class="p-' + cls + '" cx="' + x(BUDGETS[k]).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="' + (se.ours ? 4.5 : 3.5) + '"/>'; });
+      s += '<text class="lab-' + cls + '" x="' + (L + pw + 12) + '" y="' + (ly[i] + 4).toFixed(1) + '">' + se.name + ' ' + se.v[3].toFixed(1) + '</text>';
+    });
+    s += '</svg>';
+    document.getElementById(id).innerHTML = s;
+  }
+  chart('chart-experts', 0, 100, [0, 25, 50, 75, 100], [
+    { name: 'Object-level', v: [91.3, 99.8, 100.0, 100.0], dash: '7 5' },
+    { name: 'Room-level (ours)', v: [45.7, 91.6, 97.1, 98.0], ours: true },
+    { name: 'Greedy frontier', v: [24.4, 52.1, 85.8, 93.8], dash: '2 4' }
+  ]);
+  chart('chart-vlns', 20, 80, [20, 40, 60, 80], [
+    { name: 'Room-level (ours)', v: [31.6, 58.0, 64.5, 72.7], ours: true },
+    { name: 'Greedy frontier', v: [25.6, 44.5, 54.6, 68.5], dash: '2 4' },
+    { name: 'Object-level', v: [28.3, 45.0, 58.6, 65.5], dash: '7 5' },
+    { name: 'Pretrained', v: [28.3, 35.5, 38.8, 44.8] }
+  ]);
+
+  /* ---------- copy + theme ---------- */
+  var cp = document.getElementById('copy'), bib = document.getElementById('bib');
+  cp.addEventListener('click', function () {
+    function done() { cp.textContent = 'Copied'; setTimeout(function () { cp.textContent = 'Copy'; }, 1600); }
+    function select() { var r = document.createRange(); r.selectNodeContents(bib); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); cp.textContent = 'Selected, press copy'; }
+    try { navigator.clipboard.writeText(bib.textContent).then(done, select); } catch (e) { select(); }
+  });
+  var btn = document.getElementById('theme'), root = document.documentElement;
+  function current() { return root.getAttribute('data-theme') || 'dark'; }
+  function label() { btn.textContent = current() === 'dark' ? 'Light' : 'Dark'; }
+  btn.addEventListener('click', function () {
+    var next = current() === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('rtc-theme', next); } catch (e) {}
+    label();
+  });
+  label();
+})();
+</script>
+</body>
+</html>
