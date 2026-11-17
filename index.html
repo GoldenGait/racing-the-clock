@@ -201,9 +201,9 @@ footer { padding-block: 60px 50px; color: var(--soft); font-size: 14px; text-ali
     <a class="name" href="#top">Racing the Clock</a>
     <nav aria-label="Sections">
       <a href="#budget">Budget</a>
+      <a href="#results">Results</a>
       <a href="#experts">Experts</a>
       <a href="#method">Method</a>
-      <a href="#results">Results</a>
       <a href="#real">Real world</a>
       <a href="#cite">BibTeX</a>
     </nav>
@@ -274,6 +274,39 @@ footer { padding-block: 60px 50px; color: var(--soft); font-size: 14px; text-ali
     </div>
   </section>
 
+  <section class="block gut" id="results">
+    <div class="text">
+      <h2>A stronger expert is not necessarily a better teacher.</h2>
+      <p>As an expert, the object-level planner leads at every budget. After both are distilled into the same VLN under matched training conditions, the order reverses: <strong>room-level supervision achieves the highest mean collection among evaluated VLNs at every tested budget.</strong></p>
+      <p>At 2000 steps it finds 72.7% of reachable targets, versus 68.5% under greedy-frontier supervision, 65.5% under object-level supervision and 44.8% for the pretrained VLN.</p>
+    </div>
+    <div class="wide">
+      <div class="charts">
+        <div class="chart"><h3>Experts</h3><p class="hint">% of reachable targets collected</p><div class="scroll" id="chart-experts"></div></div>
+        <div class="chart"><h3>Learned policies</h3><p class="hint">% of reachable targets collected</p><div class="scroll" id="chart-vlns"></div></div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Policy</th><th>B = 150</th><th>B = 400</th><th>B = 800</th><th>B = 2000</th></tr></thead>
+          <tbody>
+            <tr class="grp"><td colspan="5">Expert policies</td></tr>
+            <tr><td>Greedy frontier expert</td><td>24.4<small>±6.3</small></td><td>52.1<small>±7.1</small></td><td>85.8<small>±4.6</small></td><td>93.8<small>±2.9</small></td></tr>
+            <tr><td>Object-level Bellman expert</td><td>91.3<small>±3.4</small></td><td>99.8<small>±0.2</small></td><td>100.0<small>±0.0</small></td><td>100.0<small>±0.0</small></td></tr>
+            <tr class="ours"><td>Room-level Bellman expert (ours)</td><td>45.7<small>±9.8</small></td><td>91.6<small>±6.4</small></td><td>97.1<small>±4.2</small></td><td>98.0<small>±3.5</small></td></tr>
+            <tr class="grp"><td colspan="5">Learned VLN policies</td></tr>
+            <tr><td>Pretrained VLN</td><td>28.3<small>±6.1</small></td><td>35.5<small>±6.2</small></td><td>38.8<small>±6.6</small></td><td>44.8<small>±7.0</small></td></tr>
+            <tr><td>VLN trained on greedy frontier expert</td><td>25.6<small>±6.0</small></td><td>44.5<small>±7.3</small></td><td>54.6<small>±7.5</small></td><td>68.5<small>±7.3</small></td></tr>
+            <tr><td>VLN trained on object-level expert</td><td>28.3<small>±6.2</small></td><td>45.0<small>±7.3</small></td><td>58.6<small>±7.5</small></td><td>65.5<small>±7.4</small></td></tr>
+            <tr class="sub"><td>budget-blind training</td><td>25.5<small>±6.0</small></td><td>42.2<small>±7.2</small></td><td>55.0<small>±7.5</small></td><td>61.8<small>±7.5</small></td></tr>
+            <tr class="ours"><td>VLN trained on room-level expert (ours)</td><td>31.6<small>±6.8</small></td><td>58.0<small>±7.4</small></td><td>64.5<small>±7.1</small></td><td>72.7<small>±6.8</small></td></tr>
+            <tr class="sub"><td>budget-blind training</td><td>28.5<small>±6.2</small></td><td>51.6<small>±7.5</small></td><td>59.5<small>±7.5</small></td><td>63.5<small>±7.5</small></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="cap" style="margin:12px 0 0;font-size:15px;color:var(--soft)">Mean % of reachable targets collected, with 95% confidence-interval half-widths, on held-out HM3D scenes.</p>
+    </div>
+  </section>
+
   <section class="block gut" id="experts">
     <div class="text">
       <h2>Two experts from one Bellman recursion, differing in what they know.</h2>
@@ -337,39 +370,6 @@ footer { padding-block: 60px 50px; color: var(--soft); font-size: 14px; text-ali
       <h3><span class="num">03</span>Distilling the experts into a VLN</h3>
       <p>Expert demonstrations are converted to Uni-NaVid's native training format. Each record holds the video history, the expert's next four primitives and a natural-language countdown of the steps remaining. <strong>The budget is provided only through language</strong>, with no numerical budget input and no architectural change.</p>
       <p>The room-level supervision has 388,199 records from 89 HM3D and 59 Matterport3D scenes, at budgets of 50, 150, 400, 800, 1200 and 2000 steps. The object-level, room-level and greedy-frontier students use the same scenes, budgets and record count, so only the expert supervision differs.</p>
-    </div>
-  </section>
-
-  <section class="block gut" id="results">
-    <div class="text">
-      <h2>A stronger expert is not necessarily a better teacher.</h2>
-      <p>As an expert, the object-level planner leads at every budget. After both are distilled into the same VLN under matched training conditions, the order reverses: <strong>room-level supervision achieves the highest mean collection among evaluated VLNs at every tested budget.</strong></p>
-      <p>At 2000 steps it finds 72.7% of reachable targets, versus 68.5% under greedy-frontier supervision, 65.5% under object-level supervision and 44.8% for the pretrained VLN.</p>
-    </div>
-    <div class="wide">
-      <div class="charts">
-        <div class="chart"><h3>Experts</h3><p class="hint">% of reachable targets collected</p><div class="scroll" id="chart-experts"></div></div>
-        <div class="chart"><h3>Learned policies</h3><p class="hint">% of reachable targets collected</p><div class="scroll" id="chart-vlns"></div></div>
-      </div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Policy</th><th>B = 150</th><th>B = 400</th><th>B = 800</th><th>B = 2000</th></tr></thead>
-          <tbody>
-            <tr class="grp"><td colspan="5">Expert policies</td></tr>
-            <tr><td>Greedy frontier expert</td><td>24.4<small>±6.3</small></td><td>52.1<small>±7.1</small></td><td>85.8<small>±4.6</small></td><td>93.8<small>±2.9</small></td></tr>
-            <tr><td>Object-level Bellman expert</td><td>91.3<small>±3.4</small></td><td>99.8<small>±0.2</small></td><td>100.0<small>±0.0</small></td><td>100.0<small>±0.0</small></td></tr>
-            <tr class="ours"><td>Room-level Bellman expert (ours)</td><td>45.7<small>±9.8</small></td><td>91.6<small>±6.4</small></td><td>97.1<small>±4.2</small></td><td>98.0<small>±3.5</small></td></tr>
-            <tr class="grp"><td colspan="5">Learned VLN policies</td></tr>
-            <tr><td>Pretrained VLN</td><td>28.3<small>±6.1</small></td><td>35.5<small>±6.2</small></td><td>38.8<small>±6.6</small></td><td>44.8<small>±7.0</small></td></tr>
-            <tr><td>VLN trained on greedy frontier expert</td><td>25.6<small>±6.0</small></td><td>44.5<small>±7.3</small></td><td>54.6<small>±7.5</small></td><td>68.5<small>±7.3</small></td></tr>
-            <tr><td>VLN trained on object-level expert</td><td>28.3<small>±6.2</small></td><td>45.0<small>±7.3</small></td><td>58.6<small>±7.5</small></td><td>65.5<small>±7.4</small></td></tr>
-            <tr class="sub"><td>budget-blind training</td><td>25.5<small>±6.0</small></td><td>42.2<small>±7.2</small></td><td>55.0<small>±7.5</small></td><td>61.8<small>±7.5</small></td></tr>
-            <tr class="ours"><td>VLN trained on room-level expert (ours)</td><td>31.6<small>±6.8</small></td><td>58.0<small>±7.4</small></td><td>64.5<small>±7.1</small></td><td>72.7<small>±6.8</small></td></tr>
-            <tr class="sub"><td>budget-blind training</td><td>28.5<small>±6.2</small></td><td>51.6<small>±7.5</small></td><td>59.5<small>±7.5</small></td><td>63.5<small>±7.5</small></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="cap" style="margin:12px 0 0;font-size:15px;color:var(--soft)">Mean % of reachable targets collected, with 95% confidence-interval half-widths, on held-out HM3D scenes.</p>
     </div>
   </section>
 
